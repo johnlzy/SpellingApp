@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kids Spelling Bee</title>
+    <style>
+        :root {
+            --primary: #FF9F1C;   /* Orange */
+            --secondary: #2EC4B6; /* Teal */
+            --accent: #E71D36;    /* Red */
+            --light: #FDFFFC;     /* White/Off-white */
+            --dark: #011627;      /* Dark Blue */
+            --bg: #E0F7FA;
+            --card-bg: #ffffff;
+            --radius: 20px;
+        }
+
+        body {
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            color: var(--dark);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--light);
+            border-radius: var(--radius);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1, h2, h3 { text-align: center; color: var(--secondary); margin-bottom: 10px; }
+        
+        /* --- Form Elements --- */
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: var(--dark); }
+        select, input[type="number"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+        textarea { height: 100px; resize: vertical; }
+
+        /* --- Buttons --- */
+        .btn {
+            border: none;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn-primary { background-color: var(--secondary); color: white; }
+        .btn-accent { background-color: var(--accent); color: white; }
+        .btn-secondary { background-color: var(--primary); color: white; }
+        .btn-outline { background-color: transparent; border: 2px solid var(--secondary); color: var(--secondary); }
+
+        /* --- Settings Toggle --- */
+        .settings-header {
+            cursor: pointer;
+            background: #eee;
+            padding: 10px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+        .settings-content {
+            display: none;
+            padding: 15px;
+            border: 2px solid #eee;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+        }
+        .settings-content.open { display: block; }
+
+        /* --- Test Area --- */
+        #test-view, #results-view { display: none; height: 100%; }
+        
+        .progress-container {
+            width: 100%;
+            background-color: #eee;
+            border-radius: 10px;
+            height: 20px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: var(--primary);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .timer-display {
+            font-size: 3rem;
+            text-align: center;
+            color: var(--accent);
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .card-container {
+            perspective: 1000px;
+            height: 200px;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .word-card {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            position: absolute;
+            transition: transform 0.4s ease-in-out, opacity 0.4s;
+        }
+
+        .blurred { filter: blur(12px); user-select: none; }
+        .revealed { filter: blur(0); color: var(--accent); }
+
+        /* Animations */
+        .swipe-out { transform: translateX(-150%) rotate(-10deg); opacity: 0; }
+        .swipe-in { animation: flyIn 0.5s forwards; }
+
+        @keyframes flyIn {
+            from { transform: translateX(150%) rotate(10deg); opacity: 0; }
+            to { transform: translateX(0) rotate(0); opacity: 1; }
+        }
+
+        /* Input for Typed Mode */
+        #type-input {
+            font-size: 1.5rem;
+            text-align: center;
+            margin-bottom: 15px;
+            border: 3px solid var(--secondary);
+            display: none; /* Hidden by default */
+        }
+        #type-input.correct { border-color: #4CAF50; background-color: #e8f5e9; }
+        #type-input.wrong { border-color: var(--accent); background-color: #ffebee; }
+
+        /* --- Results --- */
+        .result-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .result-item input { width: 25px; height: 25px; margin-right: 15px; }
+        .result-item span { font-size: 1.2rem; }
+        .result-item.wrong-mark { color: var(--accent); }
+
+        /* Utility */
+        .hidden { display: none !important; }
+        .row { display: flex; gap: 10px; }
+        .row > * { flex: 1; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div id="landing-view">
+        <h1>🐝 Spelling Bee 🐝</h1>
+        
+        <div class="row">
+            <div class="control-group">
+                <label>Who are you?</label>
+                <select id="user-select">
+                    <option value="Marie">Marie</option>
+                    <option value="Maddie">Maddie</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Language</label>
+                <select id="lang-select">
+                    <option value="en">English</option>
+                    <option value="zh">Chinese</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Select List</label>
+            <select id="week-select"></select>
+        </div>
+
+        <div class="control-group">
+            <label>Word List (Editable)</label>
+            <textarea id="word-input"></textarea>
+        </div>
+
+        <div class="control-group">
+            <div class="settings-header" onclick="toggleSettings()">
+                <span>⚙️ Settings</span>
+                <span id="settings-arrow">▼</span>
+            </div>
+            <div class="settings-content" id="settings-box">
+                <label style="display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" id="randomize-check" checked style="width:20px; height:20px;">
+                    Randomize Words
+                </label>
+                <br>
+                <label>Test Mode:</label>
+                <select id="mode-select">
+                    <option value="paper">Paper (Mental Check)</option>
+                    <option value="typed">Typed (App Verifies)</option>
+                </select>
+                <br>
+                <label>Timer (Seconds):</label>
+                <select id="timer-select">
+                    <option value="30">30s</option>
+                    <option value="60" selected>60s</option>
+                    <option value="90">90s</option>
+                </select>
+                <br>
+                <label>Voice Speed:</label>
+                <select id="speed-select">
+                    <option value="0.2">Slow (0.2x)</option>
+                    <option value="0.4" selected>Normal (0.4x)</option>
+                    <option value="0.6">Fast (0.6x)</option>
+                </select>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="startTest()">🚀 Start Test</button>
+    </div>
+
+    <div id="test-view">
+        <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        
+        <div class="timer-display" id="timer">60</div>
+
+        <div class="card-container">
+            <div class="word-card blurred" id="card-display">Word</div>
+        </div>
+
+        <input type="text" id="type-input" placeholder="Type here..." autocomplete="off">
+
+        <div class="row">
+            <button class="btn btn-secondary" onclick="repeatWord()">🔊 Repeat</button>
+            <button class="btn btn-accent" onclick="revealWord()">👁️ Reveal</button>
+        </div>
+        <button class="btn btn-primary" onclick="nextWord()" id="next-btn">➡️ Next</button>
+        <button class="btn btn-outline" style="margin-top: 20px;" onclick="endTestEarly()">🏁 End Test Early</button>
+    </div>
+
+    <div id="results-view">
+        <h2>🎉 Test Complete!</h2>
+        <p>Check the words you got WRONG so we can practice them again.</p>
+        
+        <div id="results-list" style="overflow-y: auto; max-height: 400px; margin-bottom: 20px;">
+            </div>
+
+        <button class="btn btn-accent" onclick="retestWrong()">🔄 Retest Wrong Words</button>
+        <button class="btn btn-primary" onclick="resetApp()">🏠 Back to Start</button>
+    </div>
+
+</div>
+
+<script>
+    // --- DATA ---
+    const DATABASE = {
+        "Marie": {
+            "en": {
+                "Term 1 Week 2": ["ingredients", "clattered", "frothy", "canister", "novice", "mediocre", "athlete", "illegible", "gestured", "raised an eyebrow, looked at me puzzledly and shrugged", "craned our necks and strained our eyes", "in hushed tones"],
+                "Term 1 Week 3": ["acquaintance", "adequate", "analysis", "appalling", "apparent", "appropriate", "hurled insults", "was spoiling for a fight", "was boiling with rage", "gritted her teeth", "clenched her fists", "cringed in terror", "rained torrents of abuse"],
+                "Term 1 Week 4": ["veterinarian", "responsibilities", "escalator", "preventable", "infections", "pedestrians", "peculiarly", "knowledgeable", "psyched up", "head was spinning with excitement", "paralysed with fear", "quivering like jelly"],
+                "Term 1 Week 5": ["concentrate", "curious", "curiosity", "decision", "desperate", "deteriorate", "on cloud nine", "face lit up like sun rays shining down", "heart swelled", "walked with a spring in her step", "broke my heart", "bawled her eyes out", "lips curled downwards", "tears started rolling down his cheeks"],
+                "Term 1 Week 6": ["paralysed", "disability", "mischievous", "resilience", "determination", "intentional", "the extra mile", "went forward to render assistance", "the knot in her stomach loosened", "heart swelled with pride", "on the brink of tears", "muttered a prayer of thanks"],
+                "Term 1 Week 9": ["Paralympians", "achievements", "opponent", "visually impaired", "representatives", "inclined ramp", "dilemma", "conscientious", "fish out of water", "silent admittance", "sigh deeply with resignation", "mustered up his courage"],
+                "Term 2 Week 1": ["action", "amazement", "happiness", "disability", "cheerfulness", "decision", "destruction", "emptiness", "discussion", "responsibility", "permission", "performance"],
+                "Term 2 Week 2": ["extremely", "humour", "equipment", "government", "businessman", "grievous", "embarrass", "shattered into smithereens", "appearance", "plummeted through the air", "heart could not help but palpitate", "eyes dilated in horror"],
+                "Term 2 Week 3": ["annular eclipse", "asteroid", "continuously orbit", "telescope", "natural phenomena", "infinitely", "astronomer", "mesmerised by the magnificent sunset", "stared open-mouthed", "eyes blurred with tears of happiness", "riveted to", "bleary eyes did their best to focus"],
+                "Term 2 Week 4": ["miraculously", "marvel", "commuters", "scenery", "awe-inspiring", "excruciating pain", "permanent", "poisonous", "quarrelled", "disastrous", "souvenir", "separate"],
+                "Term 2 Week 5": ["hot on his heels", "scurried around", "sprang to his feet", "tore down", "scuttled off like frightened rats", "made a mad scramble", "raced all the way", "cried hysterically", "To her utter dismay", "darted across", "in hot pursuit", "fled into the darkness of the alley"],
+                "Term 2 Week 6": ["snapped", "practising", "measure", "scrambled", "whispered", "stared", "filthy", "warily", "impetuous", "stealthily", "dilapidated", "introvert"],
+                "Term 2 Week 9": ["rose in anger", "hissed through his clenched teeth", "in a gruff voice", "give him a dressing-down", "grinned from ear to ear", "spoke to me endearingly", "made a request with anticipation written all over his face", "with a bone smashing handshake", "licked his lips nervously", "barely audible", "was oozing with pride", "turned up her nose and snorted"]
+            },
+            "zh": {
+                "听写(一) (第一课)": ["汉语拼音 - 了解 (liǎo jiě)", "汉语拼音 - 秘密 (mì mì)", "汉语拼音 - 情况 (qíng kuàng)", "汉语拼音 - 疲倦 (pí juàn)", "广告", "听众", "看新闻", "一部戏", "看得入迷", "拍手欢笑", "精彩的节目", "国内外的事情", "她刚做完了功课。", "工人叔叔在建房子。"],
+                "听写(二) (第二课)": ["汉语拼音 - 递 (dì)", "汉语拼音 - 担心 (dān xīn)", "汉语拼音 - 撑伞 (chēng sǎn)", "汉语拼音 - 表示 (biǎo shì)", "讨论", "姑姑", "鱼丸面", "兄弟俩", "灵机一动", "急急忙忙", "满天乌云", "又急又怕", "一串牛肉丸", "忽然下起大雨"],
+                "听写(三) (第三课)": ["汉语拼音 - 批评 (pī píng)", "汉语拼音 - 长辈 (zhǎng bèi)", "汉语拼音 - 警察 (jǐng chá)", "汉语拼音 - 发脾气 (fā pí qì)", "最近", "偷东西", "谢谢您", "华文补习", "迷上游戏", "尊敬老师", "非常后悔", "一直吵架", "我受不了了。", "不停地流眼泪"],
+                "听写(四) (第四课)": ["汉语拼音 - 劝告 (quàn gào)", "汉语拼音 - 赞许 (zàn xǔ)", "汉语拼音 - 保证 (bǎo zhèng)", "汉语拼音 - 皱眉头 (zhòu méi tóu)", "由于", "脚尖", "洗干净", "责任重大", "学校食堂", "安静地看书", "你不应该插队。", "对别人不公平", "今天我负责扫地。", "注意自己的行为"],
+                "听写(五) (第五课)": ["汉语拼音 - 继续 (jì xù)", "汉语拼音 - 胆小 (dǎn xiǎo)", "汉语拼音 - 微笑 (wēi xiào)", "汉语拼音 - 项目 (xiàng mù)", "打针", "伸出左手", "哇哇大哭", "闷闷不乐", "回到课室", "定时吃药", "检查身体", "闭起眼睛", "松了一口气", "考试结束了"],
+                "听写(六) (第六课)": ["汉语拼音 - 训练 (xùn liàn)", "汉语拼音 - 鼓励 (gǔ lì)", "汉语拼音 - 丰富 (fēng fù)", "汉语拼音 - 坚持 (jiān chí)", "童子军", "打功夫", "天天练习", "团队合作", "身体健康", "好久不见", "十分辛苦", "游戏开始了", "夸我懂事了", "认识新同学"],
+                "听写(七) (第七课)": ["汉语拼音 - 随手 (suí shǒu)", "汉语拼音 - 道歉 (dào qiàn)", "汉语拼音 - 秩序 (zhì xù)", "汉语拼音 - 耐心 (nài xīn)", "图书馆", "摇摇头", "听从劝告", "觉得后悔", "走进车厢", "拼命地挤", "两位乘客", "乱抢食物", "很不好意思", "排成一条长长的人龙"],
+                "听写(八) (第八课)": ["汉语拼音 - 危险 (wēi xiǎn)", "汉语拼音 - 遵守 (zūn shǒu)", "汉语拼音 - 到达 (dào dá)", "汉语拼音 - 采访 (cǎi fǎng)", "流血", "送往医院", "救护人员", "照顾伤者", "校车司机", "交通意外", "另一个行人", "被困在车里", "受了皮外伤", "打求救电话"],
+                "听写(九) (第九课)": ["汉语拼音 - 提供 (tí gōng)", "汉语拼音 - 依然 (yī rán)", "汉语拼音 - 讨厌 (tǎo yàn)", "汉语拼音 - 一般 (yì bān)", "文具店", "组屋居民", "地铁月台", "沿着坡道", "没听清楚", "离开家人", "其中一个", "口味变了", "笑着用手比画", "把座位让给老爷爷"]
+            }
+        },
+        "Maddie": {
+            "en": {
+                "Term 1 Week 5": ["rat", "run", "cry", "crane", "fly", "flowers", "try", "tree", "the", "they"],
+                "Term 1 Week 6": ["rain", "train", "mouse", "house", "cake", "face", "ask", "all", "and", "you"],
+                "Term 1 Week 7": ["dug", "duck", "tap", "tub", "pig", "pet", "mud", "scrub", "he", "she"],
+                "Term 1 Week 8": ["roll", "doll", "good", "give", "ball", "bird", "at", "that", "in", "it"],
+                "Term 1 Week 9": ["lion", "lick", "not", "note", "walk", "water", "snap", "snake", "be", "his"],
+                "Term 1 Week 10": ["cap", "trap", "tea", "leap", "feel", "see", "sweet", "swing", "for", "what"],
+                "Term 2 Week 1": ["late", "gate", "five", "hive", "sticks", "stop", "tiger", "open", "out", "come"],
+                "Term 2 Week 2": ["walked", "jumped", "bug", "jug", "pop", "mop", "pie", "tie", "so", "up"],
+                "Term 2 Week 3": ["giant", "gentle", "zoom", "food", "bread", "break", "blew", "drew", "after", "with"],
+                "Term 2 Week 4": ["goat", "game", "glue", "blue", "grass", "grab", "tooth", "soon", "get", "some"],
+                "Term 2 Week 5": ["push", "flush", "out", "mouth", "down", "clown", "dark", "star", "these", "them"],
+                "Term 2 Week 6": ["scurry", "hurry", "queen", "honey", "nibble", "bubble", "drink", "drive", "more", "are"],
+                "Term 2 Week 7": ["fridge", "flat", "creep", "crawl", "plan", "stroll", "glad", "find", "has", "ask"],
+                "Term 2 Week 8": ["shelf", "chair", "march", "fish", "skip", "quick", "trick", "have", "look", "little"],
+                "Term 3 Week 1": ["dress", "press", "castle", "listen", "brother", "father", "mother", "sister", "They like to read books about animals.", "Susan did her homework neatly."],
+                "Term 3 Week 2": ["less", "miss", "whistle", "often", "boast", "burst", "enjoy", "annoy", "The shop was closed when we arrived.", "We were so happy to go on a holiday."],
+                "Term 3 Week 3": ["glass", "fuss", "soften", "fasten", "cousin", "grandfather", "grandmother", "uncle", "I buy a birthday present for my aunt.", "The baby cries when he is hungry."],
+                "Term 3 Week 4": ["problem", "please", "where", "who", "tall", "talk", "mooncake", "lantern", "I cannot find my wallet anywhere.", "Dan sees him buying fruits at the stall."],
+                "Term 3 Week 5": ["stool", "street", "which", "why", "bald", "salt", "dumplings", "festival", "I enjoy the food of other races.", "May I go to the party with my friends?"],
+                "Term 3 Week 6": ["want", "front", "when", "white", "call", "stall", "people", "delicious", "The sun is going down behind the mountains.", "May I borrow this book?"],
+                "Term 3 Week 7": ["pockets", "packets", "drain", "draw", "kisses", "buses", "shirt", "third", "I put my lunchbox into my school bag.", "Paul has never been to the library."],
+                "Term 3 Week 8": ["kneels", "knock", "tart", "hard", "floor", "door", "breakfast", "sorry", "I can see many animals at the zoo.", "Please complete this worksheet now."],
+                "Term 3 Week 9": ["naughty", "hungry", "nurse", "purple", "clothes", "dressed", "after", "letter", "The children wash their plates after dinner.", "He gives his grandchildren green packets."],
+                "Term 4 Week 1": ["scratch", "scrapes", "hatch", "watch", "boat", "coat", "worked", "The tiger prowled through the jungle.", "The farmyard is filled with animals.", "The ducks waddled happily to the pond."],
+                "Term 4 Week 2": ["screen", "scramble", "match", "snatch", "float", "throat", "sheep", "The gardener pulls out all the weeds.", "The lazy boy does nothing the whole day.", "The farmers milk their cows in the morning."],
+                "Term 4 Week 3": ["screams", "scribbles", "patch", "fetch", "loaf", "goal", "bottle", "I put the beetle in a jar.", "The animals live on the farm.", "There are colourful flowers in the garden."],
+                "Term 4 Week 4": ["play", "away", "tray", "team", "mean", "beach", "head", "We spread some butter on our slice of bread.", "Grandma keeps her needle and thread in her sewing box.", "There are seven candles on my cake."],
+                "Term 4 Week 5": ["rain", "mail", "snail", "sleep", "feet", "teeth", "off", "Dogs sniff their food before eating.", "I feel a puff of air against my cheeks.", "I celebrate my birthday at home."],
+                "Term 4 Week 6": ["bake", "paper", "lady", "field", "thief", "piece", "quiet", "I was quite sad when I did not win the prize.", "The ducks quack loudly at the farmer.", "The gardener trims the trees."],
+                "Term 4 Week 7": ["jolly", "jelly", "smiled", "smelly", "thank", "bank", "fast", "Mary makes a list of things she needs to bring.", "Grandma is sad when she sees her broken vase.", "Sam receives a present from his uncle."],
+                "Term 4 Week 8": ["juice", "jokes", "smoke", "smash", "trunk", "think", "test", "Peter has the best handwriting in class.", "Rita puts the gold bangle into her bag.", "The dustbin is placed outside our class."]
+            },
+            "zh": {
+                "听写(一/二) (第一/二课)": ["汉语拼音 - 大雨 (dà yǔ)", "汉语拼音 - 马路 (mǎ lù)", "汉语拼音 - 乌鸦 (wū yā)", "汉语拼音 - 女儿 (nǚ ér)", "汉语拼音 - 衣服 (yī fu)", "五", "口", "人", "木", "土", "八", "也", "不", "女儿"],
+                "听写三 (第三课)": ["汉语拼音 - 举 (jǔ)", "汉语拼音 - 去 (qù)", "汉语拼音 - 可以 (kě yǐ)", "汉语拼音 - 狐狸 (hú li)", "汉语拼音 - 洗衣机 (xǐ yī jī)", "汉语拼音 - 哥哥哭了 (gē ge kū le)", "力", "几", "七", "个", "可", "去", "未"],
+                "听写四 (第四课)": ["汉语拼音 - 擦 (cā)", "汉语拼音 - 热 (rè)", "汉语拼音 - 司机 (sī jī)", "汉语拼音 - 组屋 (zǔ wū)", "汉语拼音 - 十只猪 (shí zhī zhū)", "汉语拼音 - 一把尺 (yì bǎ chǐ)", "四", "只", "子", "十", "日", "车", "巴士"],
+                "听写五 (第五课)": ["汉语拼音 - 老师 (lǎo shī)", "汉语拼音 - 草 (cǎo)", "汉语拼音 - 男孩 (nán hái)", "汉语拼音 - 玩具 (wán jù)", "汉语拼音 - 太阳 (tài yáng)", "汉语拼音 - 五把伞 (wǔ bǎ sǎn)", "山羊", "书", "王", "午", "早", "三", "毛"],
+                "听写六 (第六课)": ["汉语拼音 - 借书 (jiè shū)", "汉语拼音 - 面包 (miàn bāo)", "汉语拼音 - 跳舞 (tiào wǔ)", "汉语拼音 - 香蕉 (xiǎng jiāo)", "汉语拼音 - 两只小虾 (liǎng zhī xiǎo xiā)", "田", "力", "在", "上", "下", "大", "小"],
+                "听写七 (第七课)": ["汉语拼音 - 一朵花 (yì duǒ huā)", "汉语拼音 - 关窗 (guān chuāng)", "汉语拼音 - 桌子 (zhuō zi)", "汉语拼音 - 快乐 (kuài lè)", "汉语拼音 - 图书馆 (tú shū guǎn)", "开", "大", "关", "两", "长", "广", "多"],
+                "听写八 (第八课)": ["汉语拼音 - 猴子 (hóu zi)", "汉语拼音 - 本子 (běn zi)", "汉语拼音 - 打雷 (dǎ léi)", "汉语拼音 - 好朋友 (hǎo péng you)", "汉语拼音 - 七条虫 (qī tiáo chóng)", "目", "手", "本", "工", "门", "见", "又", "头"],
+                "听写九 (第九课)": ["汉语拼音 - 打球 (dǎ qiú)", "汉语拼音 - 眼睛 (yǎn jīng)", "汉语拼音 - 熊猫 (xióng māo)", "汉语拼音 - 一颗心 (yì kē xīn)", "汉语拼音 - 四头牛 (sì tóu niú)", "牛", "贝", "六", "支", "九", "什么", "文"],
+                "听写十 (第十课)": ["汉语拼音 - 水果 (shuǐ guǒ)", "汉语拼音 - 存钱 (cún qián)", "汉语拼音 - 音乐 (yīn yuè)", "汉语拼音 - 做运动 (zuò yùn dòng)", "汉语拼音 - 卷笔刀 (juǎn bǐ dāo)", "月", "天", "水", "寸", "正", "反", "白", "古"]
+            }
+        }
+    };
+
+    // --- STATE ---
+    let currentQueue = [];
+    let completedWords = []; // Array of objects {word: str, correct: bool}
+    let currentIndex = 0;
+    let timerInterval = null;
+    let timeLeft = 0;
+    let currentConfig = {
+        lang: 'en',
+        timer: 60,
+        rate: 0.4,
+        mode: 'paper'
+    };
+
+    // --- DOM ELEMENTS ---
+    const dom = {
+        landing: document.getElementById('landing-view'),
+        test: document.getElementById('test-view'),
+        results: document.getElementById('results-view'),
+        userSel: document.getElementById('user-select'),
+        langSel: document.getElementById('lang-select'),
+        weekSel: document.getElementById('week-select'),
+        wordInput: document.getElementById('word-input'),
+        settingsBox: document.getElementById('settings-box'),
+        settingsArrow: document.getElementById('settings-arrow'),
+        randomCheck: document.getElementById('randomize-check'),
+        timerSel: document.getElementById('timer-select'),
+        speedSel: document.getElementById('speed-select'),
+        modeSel: document.getElementById('mode-select'),
+        card: document.getElementById('card-display'),
+        timerDisplay: document.getElementById('timer'),
+        progressBar: document.getElementById('progress-bar'),
+        resultsList: document.getElementById('results-list'),
+        typeInput: document.getElementById('type-input')
+    };
+
+    // --- INITIALIZATION ---
+    function init() {
+        populateWeeks();
+        dom.userSel.addEventListener('change', populateWeeks);
+        dom.langSel.addEventListener('change', populateWeeks);
+        dom.weekSel.addEventListener('change', updateWordInput);
+        
+        // Setup initial text box
+        updateWordInput();
+
+        // Speech Synthesis warmup
+        window.speechSynthesis.getVoices();
+    }
+
+    function toggleSettings() {
+        dom.settingsBox.classList.toggle('open');
+        dom.settingsArrow.innerText = dom.settingsBox.classList.contains('open') ? '▲' : '▼';
+    }
+
+    function populateWeeks() {
+        const user = dom.userSel.value;
+        const lang = dom.langSel.value;
+        const listObj = DATABASE[user][lang];
+        
+        dom.weekSel.innerHTML = '';
+        if (listObj) {
+            for (let week in listObj) {
+                const opt = document.createElement('option');
+                opt.value = week;
+                opt.innerText = week;
+                dom.weekSel.appendChild(opt);
+            }
+        }
+        updateWordInput();
+    }
+
+    function updateWordInput() {
+        const user = dom.userSel.value;
+        const lang = dom.langSel.value;
+        const week = dom.weekSel.value;
+        
+        if (DATABASE[user][lang] && DATABASE[user][lang][week]) {
+            dom.wordInput.value = DATABASE[user][lang][week].join(', ');
+        } else {
+            dom.wordInput.value = '';
+        }
+    }
+
+    // --- TEST LOGIC ---
+
+    function startTest() {
+        // 1. Config
+        const rawWords = dom.wordInput.value.split(',').map(w => w.trim()).filter(w => w.length > 0);
+        if (rawWords.length === 0) return alert("Please enter some words!");
+
+        currentConfig.lang = dom.langSel.value;
+        currentConfig.timer = parseInt(dom.timerSel.value);
+        currentConfig.rate = parseFloat(dom.speedSel.value);
+        currentConfig.mode = dom.modeSel.value;
+        currentConfig.random = dom.randomCheck.checked;
+
+        // 2. Queue Setup
+        currentQueue = [...rawWords];
+        if (currentConfig.random) {
+            currentQueue.sort(() => Math.random() - 0.5);
+        }
+        completedWords = [];
+        currentIndex = 0;
+
+        // 3. UI Setup
+        dom.landing.style.display = 'none';
+        dom.results.style.display = 'none';
+        dom.test.style.display = 'block';
+        
+        // Mode Specifics
+        if (currentConfig.mode === 'typed') {
+            dom.typeInput.style.display = 'block';
+        } else {
+            dom.typeInput.style.display = 'none';
+        }
+
+        loadWord();
+    }
+
+    function loadWord() {
+        if (currentIndex >= currentQueue.length) {
+            endTest();
+            return;
+        }
+
+        const rawWord = currentQueue[currentIndex];
+        const parsed = parseWord(rawWord, currentConfig.lang);
+
+        // Reset UI
+        dom.card.className = 'word-card swipe-in blurred';
+        dom.card.innerText = parsed.display;
+        dom.typeInput.value = '';
+        dom.typeInput.className = '';
+        updateProgress();
+
+        // Speak
+        speak(parsed.spoken);
+
+        // Timer
+        resetTimer();
+    }
+
+    function resetTimer() {
+        clearInterval(timerInterval);
+        timeLeft = currentConfig.timer;
+        dom.timerDisplay.innerText = timeLeft;
+        
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            dom.timerDisplay.innerText = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                nextWord(); // Auto move next
+            }
+        }, 1000);
+    }
+
+    function parseWord(raw, lang) {
+        // Handle "Prefix - Word (Pinyin)" for Chinese
+        if (lang === 'zh' && raw.includes(" - ")) {
+            // Ex: 汉语拼音 - 了解 (liǎo jiě)
+            const parts = raw.split(" - ");
+            const prefix = parts[0]; // 汉语拼音
+            const rest = parts[1];   // 了解 (liǎo jiě)
+            
+            // Clean word for speech (remove pinyin parens)
+            // Speech: "汉语拼音... [pause] ... 了解"
+            const wordOnly = rest.split('(')[0].trim();
+            const spoken = prefix + "... " + wordOnly; 
+            
+            // Display: "了解 (liǎo jiě)" (keep pinyin)
+            const display = rest;
+
+            return { raw, display, spoken, answer: wordOnly };
+        }
+        
+        // Standard
+        return { raw, display: raw, spoken: raw, answer: raw };
+    }
+
+    function speak(text) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = currentConfig.rate;
+        
+        // Lang select
+        if (currentConfig.lang === 'zh') {
+            utterance.lang = 'zh-CN';
+        } else {
+            utterance.lang = 'en-GB';
+        }
+        
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // --- BUTTON ACTIONS ---
+
+    function repeatWord() {
+        const raw = currentQueue[currentIndex];
+        const parsed = parseWord(raw, currentConfig.lang);
+        speak(parsed.spoken);
+    }
+
+    function revealWord() {
+        // Mark as wrong
+        dom.card.classList.remove('blurred');
+        dom.card.classList.add('revealed');
+        // We track it as wrong immediately if revealed
+        recordResult(false);
+    }
+
+    function nextWord() {
+        const raw = currentQueue[currentIndex];
+        const parsed = parseWord(raw, currentConfig.lang);
+
+        // Validation for Typed Mode
+        if (currentConfig.mode === 'typed') {
+            const inputVal = dom.typeInput.value.trim();
+            const correctVal = parsed.answer.trim();
+            
+            // Check if already revealed (assumed wrong), or verify input
+            const isRevealed = dom.card.classList.contains('revealed');
+            
+            if (!isRevealed) {
+                // Simple case insensitive check
+                if (inputVal.toLowerCase() === correctVal.toLowerCase()) {
+                    recordResult(true);
+                } else {
+                    recordResult(false);
+                    // UX: Show it was wrong briefly?
+                    dom.typeInput.className = 'wrong';
+                    // Force reveal briefly or just move on?
+                    // Let's just move on, but maybe logic suggests if they typed wrong, they should know.
+                    // For simplicity in this flow, we record it and move.
+                }
+            }
+        } else {
+            // Paper mode
+            const isRevealed = dom.card.classList.contains('revealed');
+            if (isRevealed) {
+                // Already recorded as false in revealWord? 
+                // Wait, revealWord just visually reveals.
+                // If they revealed, it's definitely wrong.
+                // If they didn't reveal, we assume Correct in Paper mode.
+            } else {
+                recordResult(true);
+            }
+        }
+
+        // Animation
+        dom.card.classList.remove('swipe-in');
+        dom.card.classList.add('swipe-out');
+
+        setTimeout(() => {
+            currentIndex++;
+            loadWord();
+        }, 400); // Wait for animation
+    }
+
+    function recordResult(isCorrect) {
+        // Prevent double recording for same index
+        if (completedWords.length === currentIndex) {
+            completedWords.push({
+                word: currentQueue[currentIndex],
+                correct: isCorrect
+            });
+        } else {
+            // Update existing if we are just clicking Reveal then Next
+            completedWords[currentIndex].correct = isCorrect;
+        }
+    }
+
+    function endTestEarly() {
+        clearInterval(timerInterval);
+        endTest();
+    }
+
+    function updateProgress() {
+        const pct = (currentIndex / currentQueue.length) * 100;
+        dom.progressBar.style.width = pct + '%';
+    }
+
+    // --- RESULTS ---
+
+    function endTest() {
+        dom.test.style.display = 'none';
+        dom.results.style.display = 'block';
+        renderResults();
+    }
+
+    function renderResults() {
+        dom.resultsList.innerHTML = '';
+        
+        // Fill in any skipped words if ended early
+        currentQueue.forEach((word, idx) => {
+            let status = false; // default wrong if skipped
+            if (idx < completedWords.length) {
+                status = completedWords[idx].correct;
+            }
+
+            const parsed = parseWord(word, currentConfig.lang);
+
+            const div = document.createElement('div');
+            div.className = 'result-item';
+            if (!status) div.classList.add('wrong-mark');
+
+            // Checkbox logic: Checked = Wrong (User selects what to retest)
+            // If the app detected it wrong, pre-check it.
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = word;
+            checkbox.checked = !status; 
+
+            const text = document.createElement('span');
+            text.innerText = parsed.display;
+
+            div.appendChild(checkbox);
+            div.appendChild(text);
+            dom.resultsList.appendChild(div);
+        });
+    }
+
+    function retestWrong() {
+        const checks = dom.resultsList.querySelectorAll('input[type="checkbox"]:checked');
+        const wrongs = Array.from(checks).map(c => c.value);
+        
+        if (wrongs.length === 0) {
+            alert("Great job! No words selected to retest.");
+            return;
+        }
+
+        // Setup retest
+        dom.wordInput.value = wrongs.join(', ');
+        dom.results.style.display = 'none';
+        dom.landing.style.display = 'block'; // FIXED HERE
+    }
+
+    function resetApp() {
+        dom.results.style.display = 'none';
+        dom.landing.style.display = 'block'; // FIXED HERE
+    }
+
+    // Run init
+    init();
+
+</script>
+
+</body>
+</html>
