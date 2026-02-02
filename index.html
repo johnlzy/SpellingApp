@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kids Spelling Bee</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -38,6 +41,7 @@
         <div class="control-group">
             <label>Word List (Editable)</label>
             <textarea id="word-input"></textarea>
+            <small style="color: #666; font-size: 0.9em;">* Note: Sentences are only available for saved lists.</small>
         </div>
 
         <div class="control-group">
@@ -57,11 +61,12 @@
                     <option value="typed">Typed (App Verifies)</option>
                 </select>
                 <br>
-                <label>Timer (Seconds):</label>
+                <label>Timer:</label>
                 <select id="timer-select">
                     <option value="30">30s</option>
                     <option value="60" selected>60s</option>
                     <option value="90">90s</option>
+                    <option value="unlimited">Unlimited (No Timer)</option>
                 </select>
                 <br>
                 <label>Voice Speed:</label>
@@ -91,9 +96,13 @@
 
         <div class="row">
             <button class="btn btn-secondary" onclick="repeatWord()">🔊 Repeat</button>
-            <button class="btn btn-accent" onclick="revealWord()">👁️ Reveal</button>
+            <button class="btn btn-info" onclick="readSentence()">🗣️ Sentence</button>
         </div>
-        <button class="btn btn-primary" onclick="nextWord()" id="next-btn">➡️ Next</button>
+        <div class="row" style="margin-top: 10px;">
+            <button class="btn btn-accent" onclick="revealWord()">👁️ Reveal</button>
+            <button class="btn btn-primary" onclick="nextWord()" id="next-btn">➡️ Next</button>
+        </div>
+        
         <button class="btn btn-outline" style="margin-top: 20px;" onclick="endTestEarly()">🏁 End Test Early</button>
     </div>
 
@@ -102,7 +111,7 @@
         <p>Check the words you got WRONG so we can practice them again.</p>
         
         <div id="results-list" style="overflow-y: auto; max-height: 400px; margin-bottom: 20px;">
-            </div>
+        </div>
 
         <button class="btn btn-accent" onclick="retestWrong()">🔄 Retest Wrong Words</button>
         <button class="btn btn-primary" onclick="resetApp()">🏠 Back to Start</button>
