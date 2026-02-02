@@ -1,6 +1,7 @@
 // --- STATE ---
 let currentQueue = [];
-let completedWords = []; // Array of objects {word: str, correct: bool}
+let queueDetails = {}; // Map of word -> sentence
+let completedWords = [];
 let currentIndex = 0;
 let timerInterval = null;
 let timeLeft = 0;
@@ -74,8 +75,11 @@ function updateWordInput() {
     const lang = dom.langSel.value;
     const week = dom.weekSel.value;
     
+    // Database now contains objects {w: word, s: sentence}
+    // We map them to just words for the text area
     if (DATABASE[user][lang] && DATABASE[user][lang][week]) {
-        dom.wordInput.value = DATABASE[user][lang][week].join(', ');
+        const wordsOnly = DATABASE[user][lang][week].map(item => item.w);
+        dom.wordInput.value = wordsOnly.join(', ');
     } else {
         dom.wordInput.value = '';
     }
@@ -85,17 +89,36 @@ function updateWordInput() {
 
 function startTest() {
     // 1. Config
-    const rawWords = dom.wordInput.value.split(',').map(w => w.trim()).filter(w => w.length > 0);
-    if (rawWords.length === 0) return alert("Please enter some words!");
+    const rawInput = dom.wordInput.value.split(',').map(w => w.trim()).filter(w => w.length > 0);
+    if (rawInput.length === 0) return alert("Please enter some words!");
 
     currentConfig.lang = dom.langSel.value;
-    currentConfig.timer = parseInt(dom.timerSel.value);
+    
+    // Handle Unlimited Timer
+    const timerVal = dom.timerSel.value;
+    currentConfig.timer = (timerVal === 'unlimited') ? 'unlimited' : parseInt(timerVal);
+    
     currentConfig.rate = parseFloat(dom.speedSel.value);
     currentConfig.mode = dom.modeSel.value;
     currentConfig.random = dom.randomCheck.checked;
 
-    // 2. Queue Setup
-    currentQueue = [...rawWords];
+    // 2. Queue & Sentence Lookup Setup
+    // We need to match the strings in textarea back to the objects in DATABASE to get sentences.
+    // If the user typed a new word, it won't have a sentence.
+    
+    const user = dom.userSel.value;
+    const lang = dom.langSel.value;
+    const week = dom.weekSel.value;
+    
+    // Create a lookup map from the CURRENT list in database
+    const dbList = (DATABASE[user][lang] && DATABASE[user][lang][week]) ? DATABASE[user][lang][week] : [];
+    
+    queueDetails = {};
+    dbList.forEach(item => {
+        queueDetails[item.w] = item.s;
+    });
+
+    currentQueue = [...rawInput];
     if (currentConfig.random) {
         currentQueue.sort(() => Math.random() - 0.5);
     }
@@ -107,9 +130,9 @@ function startTest() {
     dom.results.style.display = 'none';
     dom.test.style.display = 'block';
     
-    // Mode Specifics
     if (currentConfig.mode === 'typed') {
         dom.typeInput.style.display = 'block';
+        dom.typeInput.focus();
     } else {
         dom.typeInput.style.display = 'none';
     }
@@ -142,6 +165,12 @@ function loadWord() {
 
 function resetTimer() {
     clearInterval(timerInterval);
+    
+    if (currentConfig.timer === 'unlimited') {
+        dom.timerDisplay.innerText = '∞';
+        return; 
+    }
+
     timeLeft = currentConfig.timer;
     dom.timerDisplay.innerText = timeLeft;
     
@@ -150,31 +179,21 @@ function resetTimer() {
         dom.timerDisplay.innerText = timeLeft;
         if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            nextWord(); // Auto move next
+            nextWord(); 
         }
     }, 1000);
 }
 
 function parseWord(raw, lang) {
-    // Handle "Prefix - Word (Pinyin)" for Chinese
     if (lang === 'zh' && raw.includes(" - ")) {
-        // Ex: 汉语拼音 - 了解 (liǎo jiě)
         const parts = raw.split(" - ");
-        const prefix = parts[0]; // 汉语拼音
-        const rest = parts[1];   // 了解 (liǎo jiě)
-        
-        // Clean word for speech (remove pinyin parens)
-        // Speech: "汉语拼音... [pause] ... 了解"
+        const prefix = parts[0];
+        const rest = parts[1];
         const wordOnly = rest.split('(')[0].trim();
         const spoken = prefix + "... " + wordOnly; 
-        
-        // Display: "了解 (liǎo jiě)" (keep pinyin)
         const display = rest;
-
         return { raw, display, spoken, answer: wordOnly };
     }
-    
-    // Standard
     return { raw, display: raw, spoken: raw, answer: raw };
 }
 
@@ -183,7 +202,6 @@ function speak(text) {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = currentConfig.rate;
     
-    // Lang select
     if (currentConfig.lang === 'zh') {
         utterance.lang = 'zh-CN';
     } else {
@@ -201,11 +219,22 @@ function repeatWord() {
     speak(parsed.spoken);
 }
 
+function readSentence() {
+    const raw = currentQueue[currentIndex];
+    // Lookup sentence
+    const sentence = queueDetails[raw];
+    
+    if (sentence) {
+        speak(sentence);
+    } else {
+        // Fallback for custom words
+        speak(currentConfig.lang === 'zh' ? "没有例句" : "No sentence available");
+    }
+}
+
 function revealWord() {
-    // Mark as wrong
     dom.card.classList.remove('blurred');
     dom.card.classList.add('revealed');
-    // We track it as wrong immediately if revealed
     recordResult(false);
 }
 
@@ -213,53 +242,42 @@ function nextWord() {
     const raw = currentQueue[currentIndex];
     const parsed = parseWord(raw, currentConfig.lang);
 
-    // Validation for Typed Mode
     if (currentConfig.mode === 'typed') {
         const inputVal = dom.typeInput.value.trim();
         const correctVal = parsed.answer.trim();
-        
-        // Check if already revealed (assumed wrong), or verify input
         const isRevealed = dom.card.classList.contains('revealed');
         
         if (!isRevealed) {
-            // Simple case insensitive check
             if (inputVal.toLowerCase() === correctVal.toLowerCase()) {
                 recordResult(true);
             } else {
                 recordResult(false);
-                // UX: Show it was wrong briefly?
                 dom.typeInput.className = 'wrong';
             }
         }
     } else {
-        // Paper mode
         const isRevealed = dom.card.classList.contains('revealed');
-        if (isRevealed) {
-            // If they revealed, it's definitely wrong.
-        } else {
+        if (!isRevealed) {
             recordResult(true);
         }
     }
 
-    // Animation
     dom.card.classList.remove('swipe-in');
     dom.card.classList.add('swipe-out');
 
     setTimeout(() => {
         currentIndex++;
         loadWord();
-    }, 400); // Wait for animation
+    }, 400);
 }
 
 function recordResult(isCorrect) {
-    // Prevent double recording for same index
     if (completedWords.length === currentIndex) {
         completedWords.push({
             word: currentQueue[currentIndex],
             correct: isCorrect
         });
     } else {
-        // Update existing if we are just clicking Reveal then Next
         completedWords[currentIndex].correct = isCorrect;
     }
 }
@@ -285,9 +303,8 @@ function endTest() {
 function renderResults() {
     dom.resultsList.innerHTML = '';
     
-    // Fill in any skipped words if ended early
     currentQueue.forEach((word, idx) => {
-        let status = false; // default wrong if skipped
+        let status = false; 
         if (idx < completedWords.length) {
             status = completedWords[idx].correct;
         }
@@ -298,8 +315,6 @@ function renderResults() {
         div.className = 'result-item';
         if (!status) div.classList.add('wrong-mark');
 
-        // Checkbox logic: Checked = Wrong (User selects what to retest)
-        // If the app detected it wrong, pre-check it.
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.value = word;
@@ -323,7 +338,6 @@ function retestWrong() {
         return;
     }
 
-    // Setup retest
     dom.wordInput.value = wrongs.join(', ');
     dom.results.style.display = 'none';
     dom.landing.style.display = 'block'; 
@@ -334,5 +348,4 @@ function resetApp() {
     dom.landing.style.display = 'block'; 
 }
 
-// Run init
 init();
